@@ -11,6 +11,8 @@ export class ImageViewerPage extends BasePage {
     private readonly currentMedicalImage = '[data-testid="medical-image"]';
     private readonly disclaimerAcceptButton = '[data-testid="welcome-popup-accept-button"]';
     private readonly switchToSeries2Button = '[data-testid="series-2-button"]';
+    private readonly sliceInformation = '[data-testid="slice-information"]';
+    private readonly patientInformationOverlay = '[data-testid="patient-information-overlay"]';
 
     constructor(page: Page) {
         super(page);
@@ -166,5 +168,44 @@ export class ImageViewerPage extends BasePage {
         );
 
         expect(mismatchedPixels, `Image ${fixturePrefix}_${imageIndex} has ${mismatchedPixels} mismatched pixels`).toBe(0);
+    }
+
+    /**
+     * Get current slice information (e.g., "1 / 7")
+     */
+    async getCurrentSliceInfo(): Promise<{ current: number; total: number }> {
+        const sliceText = await this.page.locator(this.sliceInformation).textContent();
+        const [current, total] = sliceText!.split(' / ').map(Number);
+        return { current, total };
+    }
+
+    /**
+     * Scroll the mouse wheel to navigate images
+     * @param direction 'up' or 'down'
+     */
+    async scrollMouseWheel(direction: 'up' | 'down') {
+        const image = this.page.locator(this.currentMedicalImage);
+        await image.scrollIntoViewIfNeeded();
+        
+        // Get current image source before scrolling
+        const currentSrc = await this.getCurrentImageSrc();
+        
+        // Scroll up or down (negative deltaY scrolls up, positive scrolls down)
+        await image.hover();
+        await this.page.mouse.wheel(0, direction === 'up' ? -100 : 100);
+        
+        // Wait for image to change
+        await expect(image).not.toHaveAttribute('src', currentSrc || '');
+        await this.waitForImageStability();
+    }
+
+    /**
+     * Verify patient information overlay is visible
+     */
+    async verifyPatientInfoOverlay() {
+        const overlay = this.page.locator(this.patientInformationOverlay);
+        await expect(overlay).toBeVisible();
+        await expect(overlay).toHaveAttribute('role', 'complementary');
+        await expect(overlay).toHaveAttribute('aria-label', 'Patient information and image details');
     }
 } 
