@@ -25,12 +25,8 @@ test.describe('Medical Image Viewer - Core Functionality', () => {
         await imageViewerPage.acceptDisclaimer();
     });
 
-    /**
-     * 
-     * Objective: Verify pixel-perfect rendering of medical images across series
-     * 
-     */
-    test('should maintain pixel-perfect accuracy for all medical images', async () => {
+
+    test('TC-1: should maintain pixel-perfect accuracy for all medical images', async () => {
         for (const [seriesIndex, currentSeries] of SERIES_CONFIG.entries()) {
             test.info().annotations.push({
                 type: 'info',
@@ -61,14 +57,7 @@ test.describe('Medical Image Viewer - Core Functionality', () => {
         }
     });
 
-    /**
-     * 
-     * 
-     * Objective: Validate mouse wheel navigation functionality
-     * 
-     *
-     */
-    test('should handle mouse wheel navigation accurately', async () => {
+    test('TC-2: should handle mouse wheel navigation accurately', async () => {
         for (const [seriesIndex, currentSeries] of SERIES_CONFIG.entries()) {
             test.info().annotations.push({
                 type: 'info',
@@ -119,4 +108,6 @@ test.describe('Medical Image Viewer - Core Functionality', () => {
             expect(sliceInfo.current, `Lower boundary check for ${currentSeries.name}`).toBe(1);
         }
     });
+
+
 });

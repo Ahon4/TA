@@ -3,7 +3,10 @@ import { BasePage } from './BasePage';
 import path from 'path';
 import fs from 'fs';
 import sharp from 'sharp';
-import pixelmatch from 'pixelmatch';
+import { fileURLToPath } from 'url';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 export class ImageViewerPage extends BasePage {
     // Selectors
@@ -11,8 +14,11 @@ export class ImageViewerPage extends BasePage {
     private readonly currentMedicalImage = '[data-testid="medical-image"]';
     private readonly disclaimerAcceptButton = '[data-testid="welcome-popup-accept-button"]';
     private readonly switchToSeries2Button = '[data-testid="series-2-button"]';
+    private readonly switchToSeries1Button = '[data-testid="series-1-button"]';
     private readonly sliceInformation = '[data-testid="slice-information"]';
     private readonly patientInformationOverlay = '[data-testid="patient-information-overlay"]';
+    private readonly series1Highlight = '[data-testid="series-1-container"].active';
+    private readonly series2Highlight = '[data-testid="series-2-container"].active';
 
     constructor(page: Page) {
         super(page);
@@ -89,6 +95,43 @@ export class ImageViewerPage extends BasePage {
     }
 
     /**
+     * Switch to Series 1
+     */
+    async switchToSeries1() {
+        // Get current image src to verify it changes
+        const currentImageSrc = await this.getCurrentImageSrc();
+        
+        // Click series 1 button
+        const series1Button = this.page.locator(this.switchToSeries1Button);
+        await expect(series1Button).toBeEnabled();
+        await series1Button.click();
+
+        // Wait for 5 seconds to ensure series switch is complete
+        await this.page.waitForTimeout(5000);
+
+        // Wait for image to change
+        await expect(this.page.locator(this.currentMedicalImage)).not.toHaveAttribute('src', currentImageSrc || '');
+        
+        // Wait for new image to be stable
+        await this.waitForImageStability();
+        
+        // Additional wait for any transitions
+        await this.page.waitForTimeout(1000);
+    }
+
+    /**
+     * Verify series highlight state
+     * @param series 'series1' or 'series2'
+     */
+    async verifySeriesHighlight(series: 'series1' | 'series2') {
+        const activeSelector = series === 'series1' ? this.series1Highlight : this.series2Highlight;
+        const inactiveSelector = series === 'series1' ? this.series2Highlight : this.series1Highlight;
+        
+        await expect(this.page.locator(activeSelector)).toBeVisible();
+        await expect(this.page.locator(inactiveSelector)).not.toBeVisible();
+    }
+
+    /**
      * Get the current image source
      */
     async getCurrentImageSrc(): Promise<string | null> {
@@ -137,6 +180,9 @@ export class ImageViewerPage extends BasePage {
         expect(renderedImageInfo.height).toBe(fixtureImageInfo.height);
         expect(renderedImageInfo.channels).toBe(fixtureImageInfo.channels);
 
+        // Import pixelmatch dynamically
+        const pixelmatch = (await import('pixelmatch')).default;
+
         // Compare pixels
         const diffBuffer = Buffer.alloc(renderedImageInfo.width * renderedImageInfo.height * renderedImageInfo.channels);
         const mismatchedPixels = pixelmatch(
@@ -148,8 +194,8 @@ export class ImageViewerPage extends BasePage {
             { threshold: 0 }
         );
 
-        // Save comparison artifacts
-        const outputDirectory = path.resolve(__dirname, '..', 'output');
+        // Create output directory using import.meta.url
+        const outputDirectory = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..', 'output');
         if (!fs.existsSync(outputDirectory)) fs.mkdirSync(outputDirectory);
         
         await sharp(diffBuffer, {
