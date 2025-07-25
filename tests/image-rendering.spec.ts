@@ -5,19 +5,7 @@ import { ImageViewerPage } from '../pages/ImageViewerPage';
 import { SERIES_CONFIG } from '../interfaces/SeriesConfig';
 
 /**
- * End-to-End Test Suite: Medical Image Viewer
  * 
- * Purpose: Validates the core functionality of medical image viewer application
- * Focus Areas:
- * - Image rendering accuracy through pixel-perfect comparison
- * - Navigation mechanisms (button clicks and mouse wheel)
- * - Series switching functionality
- * - UI state management
- * 
- * Test Data:
- * - Series 1: 7 images
- * - Series 2: 6 images
- * - Fixture Location: fixture/series{1,2}/
  * 
  * @author Ahon4
  * @version 1.0.0
@@ -38,19 +26,9 @@ test.describe('Medical Image Viewer - Core Functionality', () => {
     });
 
     /**
-     * Test Case ID: MIVT-001
      * 
      * Objective: Verify pixel-perfect rendering of medical images across series
      * 
-     * Test Steps:
-     * 1. Load each series
-     * 2. Compare each image with reference fixtures
-     * 3. Validate navigation state
-     * 
-     * Validation:
-     * - Exact pixel matching with reference images
-     * - Correct navigation button states
-     * - Proper image sequence
      */
     test('should maintain pixel-perfect accuracy for all medical images', async () => {
         for (const [seriesIndex, currentSeries] of SERIES_CONFIG.entries()) {
@@ -84,20 +62,11 @@ test.describe('Medical Image Viewer - Core Functionality', () => {
     });
 
     /**
-     * Test Case ID: MIVT-002
+     * 
      * 
      * Objective: Validate mouse wheel navigation functionality
      * 
-     * Test Steps:
-     * 1. Navigate through series using mouse wheel
-     * 2. Verify image sequence and indices
-     * 3. Validate UI state updates
-     * 
-     * Validation:
-     * - Correct image sequence on scroll
-     * - Accurate index updates
-     * - Proper boundary behavior
-     * - Patient information overlay consistency
+     *
      */
     test('should handle mouse wheel navigation accurately', async () => {
         for (const [seriesIndex, currentSeries] of SERIES_CONFIG.entries()) {
