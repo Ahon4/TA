@@ -1,21 +1,25 @@
-import { Page, expect } from '@playwright/test';
+import { Page } from '@playwright/test';
 import { BasePage } from './BasePage';
-import path from 'path';
-import fs from 'fs';
-import sharp from 'sharp';
-import pixelmatch from 'pixelmatch';
+import { SeriesNavigator } from './components/SeriesNavigator';
+import { ImageComparator } from './components/ImageComparator';
+import { PatientInfo } from './components/PatientInfo';
+import { SeriesPanel } from './components/SeriesPanel';
 
 export class ImageViewerPage extends BasePage {
-    // Selectors
-    private readonly nextImageButton = '[data-testid="next-image-button"]';
-    private readonly currentMedicalImage = '[data-testid="medical-image"]';
     private readonly disclaimerAcceptButton = '[data-testid="welcome-popup-accept-button"]';
-    private readonly switchToSeries2Button = '[data-testid="series-2-button"]';
-    private readonly sliceInformation = '[data-testid="slice-information"]';
-    private readonly patientInformationOverlay = '[data-testid="patient-information-overlay"]';
+    
+    // Component instances
+    readonly seriesNavigator: SeriesNavigator;
+    readonly imageComparator: ImageComparator;
+    readonly patientInfo: PatientInfo;
+    readonly seriesPanel: SeriesPanel;
 
     constructor(page: Page) {
         super(page);
+        this.seriesNavigator = new SeriesNavigator(page);
+        this.imageComparator = new ImageComparator(page);
+        this.patientInfo = new PatientInfo(page);
+        this.seriesPanel = new SeriesPanel(page);
     }
 
     /**
@@ -27,156 +31,37 @@ export class ImageViewerPage extends BasePage {
         }
     }
 
-    /**
-     * Wait for image to be stable
-     * @returns Promise<void>
-     */
-    private async waitForImageStability() {
-        const medicalImage = this.page.locator(this.currentMedicalImage);
-        
-        // Wait for image to be visible
-        await medicalImage.waitFor({ state: 'visible', timeout: 10000 });
-        
-        // Wait for network idle
-        await this.page.waitForLoadState('networkidle');
-        
-        // Get initial src
-        const initialImageSrc = await medicalImage.getAttribute('src');
-        
-        // Wait a bit and check if src remains the same
-        await this.page.waitForTimeout(1000);
-        const currentImageSrc = await medicalImage.getAttribute('src');
-        
-        expect(currentImageSrc).toBe(initialImageSrc);
-    }
-
-    /**
-     * Navigate to the next image
-     * @returns Promise<void>
-     */
+    // Delegate methods to components for cleaner test code
     async clickNext() {
-        const nextButton = this.page.locator(this.nextImageButton);
-        await expect(nextButton).toBeEnabled();
-        const currentImageSrc = await this.getCurrentImageSrc();
-        await nextButton.click();
-        await expect(this.page.locator(this.currentMedicalImage)).not.toHaveAttribute('src', currentImageSrc || '');
-        await this.waitForImageStability();
+        await this.seriesNavigator.clickNext();
     }
 
-    /**
-     * Switch to Series 2
-     */
+    async switchToSeries1() {
+        await this.seriesNavigator.switchToSeries1();
+    }
+
     async switchToSeries2() {
-        // Get current image src to verify it changes
-        const currentImageSrc = await this.getCurrentImageSrc();
-        
-        // Click series 2 button
-        const series2Button = this.page.locator(this.switchToSeries2Button);
-        await expect(series2Button).toBeEnabled();
-        await series2Button.click();
-
-        // Wait for 5 seconds to ensure series switch is complete
-        await this.page.waitForTimeout(5000);
-
-        // Wait for image to change
-        await expect(this.page.locator(this.currentMedicalImage)).not.toHaveAttribute('src', currentImageSrc || '');
-        
-        // Wait for new image to be stable
-        await this.waitForImageStability();
-        
-        // Additional wait for any transitions
-        await this.page.waitForTimeout(1000);
+        await this.seriesNavigator.switchToSeries2();
     }
 
-    /**
-     * Get the current image source
-     */
-    async getCurrentImageSrc(): Promise<string | null> {
-        return await this.page.locator(this.currentMedicalImage).getAttribute('src');
+    async getCurrentSliceInfo() {
+        return await this.seriesNavigator.getCurrentSliceInfo();
     }
 
-    /**
-     * Check if the next button is disabled
-     */
+    async verifySeriesHighlight(series: 'series1' | 'series2') {
+        await this.seriesNavigator.verifySeriesHighlight(series);
+    }
+
     async isNextButtonDisabled() {
-        await expect(this.page.locator(this.nextImageButton)).toBeDisabled();
+        await this.seriesNavigator.isNextButtonDisabled();
     }
 
-    /**
-     * Compare current image with fixture
-     * @param imageIndex Image index
-     * @param fixturesDirectory Directory containing fixtures
-     * @param fixturePrefix Fixture file prefix
-     */
     async compareCurrentImage(imageIndex: number, fixturesDirectory: string, fixturePrefix: string) {
-        // Ensure image is stable before comparison
-        await this.waitForImageStability();
-        
-        // Get current image data
-        const medicalImage = await this.waitForElement(this.currentMedicalImage);
-        const imageSrc = await medicalImage.getAttribute('src');
-        expect(imageSrc).toBeTruthy();
-        const imageResponse = await this.page.request.get(imageSrc!);
-        expect(imageResponse.status()).toBe(200);
-        const renderedImageBuffer = await imageResponse.body();
-
-        // Verify and compare with fixture
-        const fixtureFilePath = path.join(fixturesDirectory, `${fixturePrefix}_${imageIndex}.jpeg`);
-        expect(fs.existsSync(fixtureFilePath), `Fixture not found: ${fixtureFilePath}`).toBe(true);
-
-        // Convert both images to raw RGBA
-        const { data: renderedImageData, info: renderedImageInfo } = await sharp(renderedImageBuffer)
-            .raw().ensureAlpha()
-            .toBuffer({ resolveWithObject: true });
-        const { data: fixtureImageData, info: fixtureImageInfo } = await sharp(fs.readFileSync(fixtureFilePath))
-            .raw().ensureAlpha()
-            .toBuffer({ resolveWithObject: true });
-
-        // Verify dimensions
-        expect(renderedImageInfo.width).toBe(fixtureImageInfo.width);
-        expect(renderedImageInfo.height).toBe(fixtureImageInfo.height);
-        expect(renderedImageInfo.channels).toBe(fixtureImageInfo.channels);
-
-        // Compare pixels
-        const diffBuffer = Buffer.alloc(renderedImageInfo.width * renderedImageInfo.height * renderedImageInfo.channels);
-        const mismatchedPixels = pixelmatch(
-            fixtureImageData,
-            renderedImageData,
-            diffBuffer,
-            renderedImageInfo.width,
-            renderedImageInfo.height,
-            { threshold: 0 }
-        );
-
-        // Save comparison artifacts
-        const outputDirectory = path.resolve(__dirname, '..', 'output');
-        if (!fs.existsSync(outputDirectory)) fs.mkdirSync(outputDirectory);
-        
-        await sharp(diffBuffer, {
-            raw: { 
-                width: renderedImageInfo.width, 
-                height: renderedImageInfo.height, 
-                channels: renderedImageInfo.channels 
-            },
-        })
-            .jpeg({ quality: 90 })
-            .toFile(path.join(outputDirectory, `diff_${fixturePrefix}_${imageIndex}.jpeg`));
-        
-        fs.writeFileSync(
-            path.join(outputDirectory, `rendered_${fixturePrefix}_${imageIndex}.jpeg`), 
-            renderedImageBuffer
-        );
-
-        expect(mismatchedPixels, `Image ${fixturePrefix}_${imageIndex} has ${mismatchedPixels} mismatched pixels`).toBe(0);
+        await this.imageComparator.compareCurrentImage(imageIndex, fixturesDirectory, fixturePrefix);
     }
 
-    /**
-     * Get current slice information (e.g., "1 / 7")
-     */
-    async getCurrentSliceInfo(): Promise<{ current: number; total: number }> {
-        const sliceText = await this.page.locator(this.sliceInformation).textContent();
-        const [current, total] = sliceText!.split(' / ').map(Number);
-        return { current, total };
+    async verifyPatientInfoOverlay() {
+        await this.patientInfo.verifyPatientInfoOverlay();
     }
 
     /**
@@ -184,28 +69,26 @@ export class ImageViewerPage extends BasePage {
      * @param direction 'up' or 'down'
      */
     async scrollMouseWheel(direction: 'up' | 'down') {
-        const image = this.page.locator(this.currentMedicalImage);
+        const image = this.page.locator('[data-testid="medical-image"]');
         await image.scrollIntoViewIfNeeded();
-        
-        // Get current image source before scrolling
-        const currentSrc = await this.getCurrentImageSrc();
-        
-        // Scroll up or down (negative deltaY scrolls up, positive scrolls down)
+        const currentSrc = await image.getAttribute('src');
         await image.hover();
         await this.page.mouse.wheel(0, direction === 'up' ? -100 : 100);
-        
-        // Wait for image to change
-        await expect(image).not.toHaveAttribute('src', currentSrc || '');
-        await this.waitForImageStability();
+        await image.waitFor();
+        await this.page.waitForLoadState('networkidle');
+        await image.waitFor({ state: 'visible' });
     }
 
     /**
-     * Verify patient information overlay is visible
+     * Verify the left panel information
+     * @param seriesNumber Current series number (1 or 2)
+     * @param currentImage Current image number
+     * @param totalImages Total images in series
      */
-    async verifyPatientInfoOverlay() {
-        const overlay = this.page.locator(this.patientInformationOverlay);
-        await expect(overlay).toBeVisible();
-        await expect(overlay).toHaveAttribute('role', 'complementary');
-        await expect(overlay).toHaveAttribute('aria-label', 'Patient information and image details');
+    async verifyLeftPanelInfo(seriesNumber: 1 | 2, currentImage: number, totalImages: number) {
+        await this.seriesPanel.verifyPanelStructure();
+        await this.seriesPanel.verifyCurrentSeriesInfo(seriesNumber, currentImage, totalImages);
+        await this.seriesPanel.verifySeriesButtonStates(seriesNumber);
+        await this.seriesPanel.verifySeriesButtonInfo(seriesNumber, totalImages);
     }
 } 
