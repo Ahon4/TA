@@ -5,7 +5,14 @@ import { ImageViewerPage } from '../pages/ImageViewerPage';
 import { SERIES_CONFIG } from '../interfaces/SeriesConfig';
 
 /**
+ * E2E Test Suite: Medical Image Viewer Core Functionality
  * 
+ * Key Testing Concepts Demonstrated:
+ * 1. Page Object Model (POM) Pattern
+ * 2. Data-Driven Testing
+ * 3. Test Steps and Annotations
+ * 4. Component-based Testing
+ * 5. Visual Regression Testing
  * 
  * @author Ahon4
  * @version 1.0.0
@@ -15,16 +22,20 @@ import { SERIES_CONFIG } from '../interfaces/SeriesConfig';
 test.describe('Medical Image Viewer - Core Functionality', () => {
     let imageViewerPage: ImageViewerPage;
 
-    // Extended timeout for image processing operations
-    test.setTimeout(120000);
-
+    /**
+     * Test Setup: Before Each Test
+     * - Initializes page object
+     * - Navigates to application
+     * - Handles initial disclaimer
+     */
     test.beforeEach(async ({ page }) => {
-        // Initialize page object and set up test environment
         imageViewerPage = new ImageViewerPage(page);
         await imageViewerPage.goto('https://diit-playwright-qa-test.vercel.app/');
         await imageViewerPage.acceptDisclaimer();
     });
 
+    // Extended timeout for image processing
+    test.setTimeout(120000);
 
     test('TC-1: should maintain pixel-perfect accuracy for all medical images', async () => {
         for (const [seriesIndex, currentSeries] of SERIES_CONFIG.entries()) {
@@ -109,5 +120,122 @@ test.describe('Medical Image Viewer - Core Functionality', () => {
         }
     });
 
+    test('TC-3: should handle series switching and panel updates correctly', async () => {
+        // Test data for series switching scenarios
+        const seriesSwitchingTests = [
+            {
+                fromSeries: { number: 1, totalImages: 7 },
+                toSeries: { number: 2, totalImages: 6 },
+                navigationSteps: 2,
+                description: 'Switch from Series 1 to Series 2'
+            },
+            {
+                fromSeries: { number: 2, totalImages: 6 },
+                toSeries: { number: 1, totalImages: 7 },
+                navigationSteps: 3,
+                description: 'Switch from Series 2 to Series 1'
+            }
+        ];
 
+        // STEP 1: Test basic series switching functionality
+        for (const testCase of seriesSwitchingTests) {
+            await test.step(testCase.description, async () => {
+                // Initial Setup and Validation
+                await test.step('Setup and validate initial state', async () => {
+                    test.info().annotations.push({
+                        type: 'info',
+                        description: `Starting from Series ${testCase.fromSeries.number}`
+                    });
+
+                    if (testCase.fromSeries.number === 2) {
+                        await imageViewerPage.switchToSeries2();
+                    }
+
+                    let sliceInfo = await imageViewerPage.getCurrentSliceInfo();
+                    expect(sliceInfo.current, `Initial image index for Series ${testCase.fromSeries.number}`).toBe(1);
+                    expect(sliceInfo.total, `Total images for Series ${testCase.fromSeries.number}`)
+                        .toBe(testCase.fromSeries.totalImages);
+                    
+                    await imageViewerPage.verifyLeftPanelInfo(
+                        testCase.fromSeries.number as 1 | 2,
+                        1,
+                        testCase.fromSeries.totalImages
+                    );
+                    await imageViewerPage.verifySeriesHighlight(
+                        testCase.fromSeries.number === 1 ? 'series1' : 'series2'
+                    );
+                    await imageViewerPage.compareCurrentImage(
+                        1,
+                        SERIES_CONFIG[testCase.fromSeries.number - 1].fixturePath,
+                        SERIES_CONFIG[testCase.fromSeries.number - 1].fixturePrefix
+                    );
+                });
+
+                // Navigate Through Source Series
+                await test.step('Navigate through source series', async () => {
+                    for (let i = 1; i <= testCase.navigationSteps; i++) {
+                        await imageViewerPage.clickNext();
+                    }
+                    
+                    const sliceInfo = await imageViewerPage.getCurrentSliceInfo();
+                    expect(sliceInfo.current, `Navigation index in Series ${testCase.fromSeries.number}`)
+                        .toBe(testCase.navigationSteps + 1);
+                    
+                    await imageViewerPage.verifyLeftPanelInfo(
+                        testCase.fromSeries.number as 1 | 2,
+                        testCase.navigationSteps + 1,
+                        testCase.fromSeries.totalImages
+                    );
+                });
+
+                // Switch Series and Verify
+                await test.step(`Switch to Series ${testCase.toSeries.number}`, async () => {
+                    if (testCase.toSeries.number === 2) {
+                        await imageViewerPage.switchToSeries2();
+                    } else {
+                        await imageViewerPage.switchToSeries1();
+                    }
+
+                    const sliceInfo = await imageViewerPage.getCurrentSliceInfo();
+                    expect(sliceInfo.current, `Image index should reset to 1 for Series ${testCase.toSeries.number}`)
+                        .toBe(1);
+                    expect(sliceInfo.total, `Total images for Series ${testCase.toSeries.number}`)
+                        .toBe(testCase.toSeries.totalImages);
+                    
+                    await imageViewerPage.verifyLeftPanelInfo(
+                        testCase.toSeries.number as 1 | 2,
+                        1,
+                        testCase.toSeries.totalImages
+                    );
+                    await imageViewerPage.verifySeriesHighlight(
+                        testCase.toSeries.number === 1 ? 'series1' : 'series2'
+                    );
+                    await imageViewerPage.compareCurrentImage(
+                        1,
+                        SERIES_CONFIG[testCase.toSeries.number - 1].fixturePath,
+                        SERIES_CONFIG[testCase.toSeries.number - 1].fixturePrefix
+                    );
+                });
+            });
+        }
+
+        // STEP 2: Test rapid series switching stability
+        await test.step('Verify stability during rapid series switching', async () => {
+            // Quick switch to Series 2
+            await imageViewerPage.switchToSeries2();
+            await imageViewerPage.verifyLeftPanelInfo(2, 1, SERIES_CONFIG[1].totalImages);
+            await imageViewerPage.verifySeriesHighlight('series2');
+
+            // Immediately switch back to Series 1
+            await imageViewerPage.switchToSeries1();
+            await imageViewerPage.verifyLeftPanelInfo(1, 1, SERIES_CONFIG[0].totalImages);
+            await imageViewerPage.verifySeriesHighlight('series1');
+
+            // Verify final state
+            const finalSliceInfo = await imageViewerPage.getCurrentSliceInfo();
+            expect(finalSliceInfo.current, 'Image index should be 1 after rapid switching').toBe(1);
+            expect(finalSliceInfo.total, 'Total images should be correct after rapid switching')
+                .toBe(SERIES_CONFIG[0].totalImages);
+        });
+    });
 });
