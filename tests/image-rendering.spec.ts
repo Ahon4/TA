@@ -238,4 +238,63 @@ test.describe('Medical Image Viewer - Core Functionality', () => {
                 .toBe(SERIES_CONFIG[0].totalImages);
         });
     });
+
+    test('TC-4: should display and maintain correct patient information', async () => {
+        // Test data
+        const expectedPatientInfo = {
+            name: 'John Doe',
+            id: 'P001234567'
+        };
+
+        // STEP 1: Verify initial patient information display
+        await test.step('Verify initial patient information', async () => {
+            // Verify overlay structure
+            await imageViewerPage.verifyPatientInfoOverlay();
+            
+            // Verify patient information content
+            await imageViewerPage.patientInfo.verifyPatientInfo(
+                expectedPatientInfo.name,
+                expectedPatientInfo.id
+            );
+        });
+
+        // STEP 2: Verify information persistence during Series 1 navigation
+        await test.step('Verify information persistence in Series 1', async () => {
+            // Navigate through Series 1
+            for (let i = 1; i < SERIES_CONFIG[0].totalImages; i++) {
+                await imageViewerPage.clickNext();
+                await imageViewerPage.patientInfo.verifyPatientInfoPersistence();
+            }
+        });
+
+        // STEP 3: Verify information persistence during series switch
+        await test.step('Verify information persistence during series switch', async () => {
+            // Switch to Series 2
+            await imageViewerPage.switchToSeries2();
+            
+            // Verify patient information remains unchanged
+            await imageViewerPage.patientInfo.verifyPatientInfo(
+                expectedPatientInfo.name,
+                expectedPatientInfo.id
+            );
+
+            // Navigate through Series 2
+            for (let i = 1; i < SERIES_CONFIG[1].totalImages; i++) {
+                await imageViewerPage.clickNext();
+                await imageViewerPage.patientInfo.verifyPatientInfoPersistence();
+            }
+        });
+
+        // STEP 4: Verify information persistence during rapid series switching
+        await test.step('Verify information persistence during rapid switching', async () => {
+            // Perform rapid switches between series
+            for (let i = 0; i < 3; i++) {
+                await imageViewerPage.switchToSeries1();
+                await imageViewerPage.patientInfo.verifyPatientInfoPersistence();
+                
+                await imageViewerPage.switchToSeries2();
+                await imageViewerPage.patientInfo.verifyPatientInfoPersistence();
+            }
+        });
+    });
 });
