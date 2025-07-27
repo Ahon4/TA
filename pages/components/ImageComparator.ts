@@ -32,7 +32,7 @@ export class ImageComparator extends BasePage {
         const renderedImageBuffer = await imageResponse.body();
 
         const fixtureFilePath = path.join(fixturesDirectory, `${fixturePrefix}_${imageIndex}.jpeg`);
-        expect(fs.existsSync(fixtureFilePath), `Fixture not found: ${fixtureFilePath}`).toBe(true);
+        expect(fs.existsSync(fixtureFilePath), `Fixture found: ${fixtureFilePath}`).toBe(true);
 
         const { data: renderedImageData, info: renderedImageInfo } = await sharp(renderedImageBuffer)
             .raw().ensureAlpha()
