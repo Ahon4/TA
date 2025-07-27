@@ -37,7 +37,7 @@ test.describe('Medical Image Viewer - Core Functionality', () => {
     // Extended timeout for image processing
     test.setTimeout(120000);
 
-    test('TC-1: should maintain pixel-perfect accuracy for all medical images', async () => {
+    test('TC-1: Correctness of Rendering of Images', async () => {
         for (const [seriesIndex, currentSeries] of SERIES_CONFIG.entries()) {
             test.info().annotations.push({
                 type: 'info',
@@ -68,7 +68,7 @@ test.describe('Medical Image Viewer - Core Functionality', () => {
         }
     });
 
-    test('TC-2: should handle mouse wheel navigation accurately', async () => {
+    test('TC-2:  Navigation Between Images Using Mouse Scroll', async () => {
         for (const [seriesIndex, currentSeries] of SERIES_CONFIG.entries()) {
             test.info().annotations.push({
                 type: 'info',
@@ -120,7 +120,7 @@ test.describe('Medical Image Viewer - Core Functionality', () => {
         }
     });
 
-    test('TC-3: should handle series switching and panel updates correctly', async () => {
+    test('TC-3: Switch of Series', async () => {
         // Test data for series switching scenarios
         const seriesSwitchingTests = [
             {
@@ -239,7 +239,7 @@ test.describe('Medical Image Viewer - Core Functionality', () => {
         });
     });
 
-    test('TC-4: should display and maintain correct patient information', async () => {
+    test('TC-4: Verify Patient Information Overlay Displays Correct Data', async () => {
         // Test data
         const expectedPatientInfo = {
             name: 'John Doe',
