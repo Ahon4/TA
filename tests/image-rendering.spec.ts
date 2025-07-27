@@ -5,14 +5,6 @@ import { ImageViewerPage } from '../pages/ImageViewerPage';
 import { SERIES_CONFIG } from '../interfaces/SeriesConfig';
 
 /**
- * E2E Test Suite: Medical Image Viewer Core Functionality
- * 
- * Key Testing Concepts Demonstrated:
- * 1. Page Object Model (POM) Pattern
- * 2. Data-Driven Testing
- * 3. Test Steps and Annotations
- * 4. Component-based Testing
- * 5. Visual Regression Testing
  * 
  * @author Ahon4
  * @version 1.0.0
@@ -22,12 +14,7 @@ import { SERIES_CONFIG } from '../interfaces/SeriesConfig';
 test.describe('Medical Image Viewer - Core Functionality', () => {
     let imageViewerPage: ImageViewerPage;
 
-    /**
-     * Test Setup: Before Each Test
-     * - Initializes page object
-     * - Navigates to application
-     * - Handles initial disclaimer
-     */
+
     test.beforeEach(async ({ page }) => {
         imageViewerPage = new ImageViewerPage(page);
         await imageViewerPage.goto('https://diit-playwright-qa-test.vercel.app/');
